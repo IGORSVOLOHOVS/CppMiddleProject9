@@ -27,7 +27,11 @@ public:
 
         friend void tag_invoke(stdexec::start_t, OperationState &self) noexcept {
             try {
-                self.state_.need_rerender = false;
+                if (self.state_.should_exit) {
+                    stdexec::set_stopped(std::move(self.receiver_));
+                    return;
+                }
+
                 self.HandleEvents();
                 self.HandleContinuousZoom();
 
