@@ -2,10 +2,12 @@
 
 #include <chrono>
 #include <vector>
+#include <ranges>
+#include <span>
 
 #include "mandelbrot_fractal_utils.hpp"
 
-const constexpr std::uint32_t THREAD_POOL_SIZE{8};
+inline constexpr std::uint32_t THREAD_POOL_SIZE{8};
 
 using PixelMatrix = std::vector<std::vector<std::uint32_t>>;
 using ColorMatrix = std::vector<std::vector<mandelbrot::RgbColor>>;
@@ -25,7 +27,6 @@ struct PixelRegion {
 };
 
 struct RenderResult {
-    PixelMatrix pixel_data;
     ColorMatrix color_data;
     mandelbrot::ViewPort viewport;
     RenderSettings settings;

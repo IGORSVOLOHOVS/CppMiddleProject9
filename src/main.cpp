@@ -15,7 +15,6 @@
 
 using namespace std::chrono_literals;
 
-// Класс для отслеживания времени кадра
 class FrameClock {
 public:
     FrameClock() { Reset(); }
@@ -27,16 +26,13 @@ private:
     std::chrono::time_point<std::chrono::steady_clock> frame_start_;
 };
 
-// Функциональный объект для ограничения FPS
 class WaitForFPS {
 public:
     FrameClock &clock_;
     const std::chrono::milliseconds frame_duration_;
 
-    explicit WaitForFPS(FrameClock &clock, int fps)
-        : clock_(clock), frame_duration_{1000 / fps} {}
-    
-    // operator() будет вызван в stdexec::then
+    explicit WaitForFPS(FrameClock &clock, int fps) : clock_(clock), frame_duration_{1000 / fps} {}
+
     void operator()() const {
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(clock_.GetFrameTime());
         if (elapsed < frame_duration_) {
@@ -69,10 +65,8 @@ public:
     void Run() {
         FrameClock frame_clock;
         sf::Clock zoom_clock;
-        
-        // Пайплайн, который не менялся, как и требовалось
-        auto pipeline = SfmlEventHandler{window_, render_settings_, state_, zoom_clock} |
-                        stdexec::let_value([this]() {
+
+        auto pipeline = SfmlEventHandler{window_, render_settings_, state_, zoom_clock} | stdexec::let_value([this]() {
                             return CalculateMandelbrotAsyncSender{state_, render_settings_, renderer_};
                         }) |
                         stdexec::let_value([this](RenderResult data) {

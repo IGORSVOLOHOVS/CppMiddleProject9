@@ -5,7 +5,6 @@
 
 #include "types.hpp"
 
-// Сендер для обработки событий SFML
 class SfmlEventHandler {
 public:
     using sender_concept = stdexec::sender_t;
@@ -25,8 +24,7 @@ public:
                                 sf::Clock &zoom_clock)
             : receiver_{std::forward<R>(r)}, window_{window}, render_settings_{render_settings}, state_{state},
               zoom_clock_{zoom_clock} {}
-        
-        // Запуск обработки событий
+
         friend void tag_invoke(stdexec::start_t, OperationState &self) noexcept {
             try {
                 self.state_.need_rerender = false;
@@ -36,8 +34,6 @@ public:
                 if (self.state_.should_exit) {
                     stdexec::set_stopped(std::move(self.receiver_));
                 } else {
-                    // Этот сендер не производит значения, он только меняет состояние
-                    // и передает "эстафету" дальше
                     stdexec::set_value(std::move(self.receiver_));
                 }
             } catch (...) {
@@ -82,7 +78,7 @@ public:
             }
         }
 
-        void ZoomToPoint(int pixel_x, int pixel_y, bool zoom_in, double factor = 0.8) {
+        void ZoomToPoint(int pixel_x, int pixel_y, bool zoom_in, double factor = 0.9) {
             const double target_x = state_.viewport.x_min +
                                     (static_cast<double>(pixel_x) / render_settings_.width) * state_.viewport.width();
             const double target_y = state_.viewport.y_min +
@@ -92,7 +88,6 @@ public:
             const double new_width = state_.viewport.width() * zoom_factor;
             const double new_height = state_.viewport.height() * zoom_factor;
 
-            // Обновляем viewport и ставим флаг необходимости перерисовки
             state_.viewport.x_min = target_x - (static_cast<double>(pixel_x) / render_settings_.width) * new_width;
             state_.viewport.x_max = state_.viewport.x_min + new_width;
             state_.viewport.y_min = target_y - (static_cast<double>(pixel_y) / render_settings_.height) * new_height;
@@ -104,7 +99,6 @@ public:
     SfmlEventHandler(sf::RenderWindow &window, RenderSettings render_settings, AppState &state, sf::Clock &zoom_clock)
         : window_{window}, render_settings_{render_settings}, state_{state}, zoom_clock_{zoom_clock} {}
 
-    // Сигнатуры: либо успех (без значения), либо ошибка, либо отмена
     template <class Env>
     friend auto tag_invoke(stdexec::get_completion_signatures_t, const SfmlEventHandler &, Env)
         -> stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(std::exception_ptr),
@@ -114,7 +108,8 @@ public:
 
     template <typename Receiver>
     friend auto tag_invoke(stdexec::connect_t, SfmlEventHandler &&self, Receiver receiver) -> OperationState<Receiver> {
-        return OperationState<Receiver>{std::move(receiver), self.window_, self.render_settings_, self.state_, self.zoom_clock_};
+        return OperationState<Receiver>{std::move(receiver), self.window_, self.render_settings_, self.state_,
+                                        self.zoom_clock_};
     }
 
 private:
@@ -123,3 +118,4 @@ private:
     AppState &state_;
     sf::Clock &zoom_clock_;
 };
+
