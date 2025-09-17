@@ -14,6 +14,8 @@
 #include "sfml_renderer.hpp"
 
 using namespace std::chrono_literals;
+
+// Класс для отслеживания времени кадра
 class FrameClock {
 public:
     FrameClock() { Reset(); }
@@ -25,9 +27,23 @@ private:
     std::chrono::time_point<std::chrono::steady_clock> frame_start_;
 };
 
+// Функциональный объект для ограничения FPS
 class WaitForFPS {
 public:
+    FrameClock &clock_;
+    const std::chrono::milliseconds frame_duration_;
 
+    explicit WaitForFPS(FrameClock &clock, int fps)
+        : clock_(clock), frame_duration_{1000 / fps} {}
+    
+    // operator() будет вызван в stdexec::then
+    void operator()() const {
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(clock_.GetFrameTime());
+        if (elapsed < frame_duration_) {
+            std::this_thread::sleep_for(frame_duration_ - elapsed);
+        }
+        clock_.Reset();
+    }
 };
 
 class MandelbrotApp {
@@ -45,24 +61,23 @@ public:
     MandelbrotApp()
         : window_{sf::VideoMode{render_settings_.width, render_settings_.height}, "Mandelbrot Fractal"},
           renderer_{THREAD_POOL_SIZE} {
-
         image_.create(render_settings_.width, render_settings_.height);
         texture_.create(render_settings_.width, render_settings_.height);
-
         window_.setKeyRepeatEnabled(false);
     }
 
     void Run() {
         FrameClock frame_clock;
         sf::Clock zoom_clock;
-
-        auto pipeline = SfmlEventHandler{window_, render_settings_, state_, zoom_clock} |  //
-                        stdexec::let_value([this]() {                                      //
+        
+        // Пайплайн, который не менялся, как и требовалось
+        auto pipeline = SfmlEventHandler{window_, render_settings_, state_, zoom_clock} |
+                        stdexec::let_value([this]() {
                             return CalculateMandelbrotAsyncSender{state_, render_settings_, renderer_};
                         }) |
                         stdexec::let_value([this](RenderResult data) {
                             return SFMLRender{std::move(data), image_, texture_, sprite_, window_, render_settings_};
-                        }) |  //
+                        }) |
                         stdexec::then(WaitForFPS{frame_clock, 60});
 
         auto repeated_pipeline =
