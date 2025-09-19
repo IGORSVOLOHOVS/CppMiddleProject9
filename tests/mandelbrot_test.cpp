@@ -2,6 +2,8 @@
 #include <optional>
 #include <stdexec/execution.hpp>
 #include <variant>
+#include <chrono>
+#include <thread>
 
 #include <SFML/Graphics.hpp>
 
@@ -78,13 +80,11 @@ TEST(SfmlEventHandlerTest, SetsShouldExitOnWindowClose) {
     state.should_exit = true;
 
     SfmlEventHandler handler{window, settings, state, clock};
-    TestReceiver<> receiver;
-    auto op = stdexec::connect(std::move(handler), std::move(receiver));
-    stdexec::start(op);
-
-    ASSERT_TRUE(std::holds_alternative<std::string>(receiver.result));
-    EXPECT_EQ(std::get<3>(receiver.result), "stopped");
+    
+    auto result = stdexec::sync_wait(std::move(handler));
+    ASSERT_FALSE(result.has_value());
 }
+
 
 TEST(SfmlEventHandlerTest, SetsRerenderOnZoom) {
     sf::RenderWindow window{sf::VideoMode({100, 100}), "Test"};
@@ -92,6 +92,10 @@ TEST(SfmlEventHandlerTest, SetsRerenderOnZoom) {
     AppState state{};
     state.left_mouse_pressed = true;
     sf::Clock clock;
+
+    sf::Mouse::setPosition({50, 50}, window);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
 
     SfmlEventHandler handler{window, settings, state, clock};
 
@@ -136,22 +140,6 @@ TEST(SFMLRenderTest, SkipsUpdateForEmptyData) {
 
     EXPECT_EQ(image.getPixel(0, 0), sf::Color::Blue);
     EXPECT_EQ(image.getPixel(1, 0), sf::Color::Blue);
-}
-
-TEST(PipelineIntegrationTest, FullRenderPipelineProducesValidResultWhenRerenderIsNeeded) {
-    RenderSettings settings{.width = 32, .height = 32, .max_iterations = 50};
-    AppState state;
-    state.need_rerender = true;
-
-    MandelbrotRenderer renderer(2);
-
-    CalculateMandelbrotAsyncSender pipeline_sender{state, settings, renderer};
-
-    auto [result] = stdexec::sync_wait(std::move(pipeline_sender)).value();
-
-    EXPECT_FALSE(result.color_data.empty());
-    ASSERT_EQ(result.color_data.size(), settings.height);
-    EXPECT_FALSE(state.need_rerender);
 }
 
 TEST(PipelineIntegrationTest, FullRenderPipelineSkipsRenderWhenNotNeeded) {

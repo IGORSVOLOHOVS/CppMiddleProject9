@@ -8,7 +8,8 @@
 #include "types.hpp"
 
 class SFMLRender {
-private:
+public:
+
     template <typename Receiver>
     struct OperationState {
         Receiver receiver_;
@@ -34,11 +35,13 @@ private:
                     }
                 }
 
-                self.window_.clear();
                 self.texture_.update(self.image_);
                 self.sprite_.setTexture(self.texture_);
+                
+                self.window_.clear();
                 self.window_.draw(self.sprite_);
                 self.window_.display();
+
                 stdexec::set_value(std::move(self.receiver_));
             } catch (...) {
                 stdexec::set_error(std::move(self.receiver_), std::current_exception());
@@ -46,8 +49,12 @@ private:
         }
     };
 
-public:
     using sender_concept = stdexec::sender_t;
+    
+    using completion_signatures = stdexec::completion_signatures<
+        stdexec::set_value_t(), 
+        stdexec::set_error_t(std::exception_ptr),
+        stdexec::set_stopped_t()>;
 
     RenderResult render_result_;
     sf::Image &image_;
@@ -61,16 +68,15 @@ public:
         : render_result_(std::move(render_result)), image_{image}, texture_{texture}, sprite_{sprite}, window_{window},
           render_settings_{render_settings} {}
 
-    template <class Env>
-    friend auto tag_invoke(stdexec::get_completion_signatures_t, const SFMLRender &, Env)
-        -> stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(std::exception_ptr),
-                                          stdexec::set_stopped_t()> {
-        return {};
-    }
-
-    template <typename Receiver>
-    friend auto tag_invoke(stdexec::connect_t, SFMLRender &&self, Receiver receiver) -> OperationState<Receiver> {
-        return {std::move(receiver), std::move(self.render_result_), self.image_, self.texture_, self.sprite_, self.window_};
+    template <stdexec::receiver_of<completion_signatures> Receiver>
+    auto connect(Receiver&& receiver) && -> OperationState<std::decay_t<Receiver>> {
+        return OperationState<std::decay_t<Receiver>>{
+            std::forward<Receiver>(receiver), 
+            std::move(render_result_), 
+            image_, 
+            texture_, 
+            sprite_, 
+            window_
+        };
     }
 };
-

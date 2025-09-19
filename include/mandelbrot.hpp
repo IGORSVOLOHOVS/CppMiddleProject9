@@ -1,10 +1,11 @@
 #pragma once
 
-#include "mandelbrot_renderer.hpp"
+#include "mandelbrot_renderer.hpp" 
 #include <stdexec/execution.hpp>
 
 class CalculateMandelbrotAsyncSender {
-private:
+public:
+
     template <typename Receiver>
     struct OperationState {
         Receiver receiver_;
@@ -21,8 +22,9 @@ private:
 
                     auto render_sender = self.renderer_.template RenderAsync<THREAD_POOL_SIZE>(self.state_.viewport,
                                                                                                self.render_settings_);
-
-                    auto transfer_back_sender = stdexec::continues_on(std::move(render_sender), main_thread_scheduler);
+                    
+                    auto transfer_back_sender =
+                        stdexec::continues_on(std::move(render_sender), main_thread_scheduler);
 
                     auto op = stdexec::connect(std::move(transfer_back_sender), std::move(self.receiver_));
                     stdexec::start(op);
@@ -35,7 +37,6 @@ private:
         }
     };
 
-public:
     using sender_concept = stdexec::sender_t;
 
     explicit CalculateMandelbrotAsyncSender(AppState &state, RenderSettings render_settings,
@@ -43,17 +44,18 @@ public:
         : state_(state), render_settings_{render_settings}, renderer_{renderer} {}
 
     template <class Env>
-    friend auto tag_invoke(stdexec::get_completion_signatures_t, const CalculateMandelbrotAsyncSender &, Env)
-        -> stdexec::completion_signatures<stdexec::set_value_t(RenderResult), stdexec::set_error_t(std::exception_ptr),
-                                          stdexec::set_stopped_t()> {
+    auto get_completion_signatures(Env &&) const -> stdexec::completion_signatures<
+        stdexec::set_value_t(RenderResult),
+        stdexec::set_error_t(std::exception_ptr),
+        stdexec::set_stopped_t()> {
         return {};
     }
-
-    template <typename Receiver>
-    friend auto tag_invoke(stdexec::connect_t, CalculateMandelbrotAsyncSender &&self, Receiver receiver)
-        -> OperationState<Receiver> {
-        return {std::move(receiver), self.state_, self.render_settings_, self.renderer_};
+    
+    template <stdexec::receiver Receiver>
+    auto connect(Receiver &&receiver) && -> OperationState<std::decay_t<Receiver>> {
+        return {std::forward<Receiver>(receiver), state_, render_settings_, renderer_};
     }
+
 
 private:
     RenderSettings render_settings_;

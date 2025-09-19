@@ -7,7 +7,6 @@
 
 class SfmlEventHandler {
 public:
-    using sender_concept = stdexec::sender_t;
 
     template <typename Receiver>
     struct OperationState {
@@ -18,12 +17,6 @@ public:
         sf::Clock &zoom_clock_;
 
         static constexpr float ZOOM_INTERVAL_MS = 100.0f;
-
-        template <typename R>
-        explicit OperationState(R &&r, sf::RenderWindow &window, RenderSettings render_settings, AppState &state,
-                                sf::Clock &zoom_clock)
-            : receiver_{std::forward<R>(r)}, window_{window}, render_settings_{render_settings}, state_{state},
-              zoom_clock_{zoom_clock} {}
 
         friend void tag_invoke(stdexec::start_t, OperationState &self) noexcept {
             try {
@@ -100,26 +93,26 @@ public:
         }
     };
 
+    using sender_concept = stdexec::sender_t;
+
     SfmlEventHandler(sf::RenderWindow &window, RenderSettings render_settings, AppState &state, sf::Clock &zoom_clock)
         : window_{window}, render_settings_{render_settings}, state_{state}, zoom_clock_{zoom_clock} {}
 
     template <class Env>
-    friend auto tag_invoke(stdexec::get_completion_signatures_t, const SfmlEventHandler &, Env)
-        -> stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(std::exception_ptr),
-                                          stdexec::set_stopped_t()> {
+    auto get_completion_signatures(Env &&) const -> stdexec::completion_signatures<
+        stdexec::set_value_t(),
+        stdexec::set_error_t(std::exception_ptr),
+        stdexec::set_stopped_t()> {
         return {};
     }
 
-    template <typename Receiver>
-    friend auto tag_invoke(stdexec::connect_t, SfmlEventHandler &&self, Receiver receiver) -> OperationState<Receiver> {
-        return OperationState<Receiver>{std::move(receiver), self.window_, self.render_settings_, self.state_,
-                                        self.zoom_clock_};
+    template <stdexec::receiver Receiver>
+    auto connect(Receiver &&receiver) && -> OperationState<std::decay_t<Receiver>> {
+        return {std::forward<Receiver>(receiver), window_, render_settings_, state_, zoom_clock_};
     }
-
 private:
     sf::RenderWindow &window_;
     RenderSettings render_settings_;
     AppState &state_;
     sf::Clock &zoom_clock_;
 };
-

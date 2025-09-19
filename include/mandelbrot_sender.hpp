@@ -5,7 +5,8 @@
 #include <stdexec/execution.hpp>
 
 class MandelbrotSender {
-private:
+public:
+
     template <typename Receiver>
     struct OperationState {
         Receiver receiver_;
@@ -36,7 +37,6 @@ private:
         }
     };
 
-public:
     using sender_concept = stdexec::sender_t;
 
     mandelbrot::ViewPort viewport_;
@@ -44,14 +44,15 @@ public:
     PixelRegion region_;
 
     template <class Env>
-    friend auto tag_invoke(stdexec::get_completion_signatures_t, const MandelbrotSender &, Env)
-        -> stdexec::completion_signatures<stdexec::set_value_t(PixelMatrix), stdexec::set_error_t(std::exception_ptr),
-                                          stdexec::set_stopped_t()> {
+    auto get_completion_signatures(Env &&) const -> stdexec::completion_signatures<
+        stdexec::set_value_t(PixelMatrix),
+        stdexec::set_error_t(std::exception_ptr),
+        stdexec::set_stopped_t()> {
         return {};
     }
 
-    template <typename Receiver>
-    friend auto tag_invoke(stdexec::connect_t, MandelbrotSender &&self, Receiver receiver) -> OperationState<Receiver> {
-        return {std::move(receiver), self.viewport_, self.settings_, self.region_};
+    template <stdexec::receiver Receiver>
+    auto connect(Receiver &&receiver) && -> OperationState<std::decay_t<Receiver>> {
+        return {std::move(receiver), viewport_, settings_, region_};
     }
 };

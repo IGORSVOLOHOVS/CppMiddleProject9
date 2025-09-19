@@ -20,15 +20,18 @@ public:
 
         auto render_strips = [=, this]<std::size_t... Is>(std::index_sequence<Is...>) {
             auto create_strip_sender = [=, this](size_t i) {
-                PixelRegion region{.start_row = static_cast<uint32_t>(i * rows_per_task),
-                                   .end_row =
-                                       static_cast<uint32_t>((i == N - 1) ? settings.height : (i + 1) * rows_per_task),
-                                   .start_col = 0,
-                                   .end_col = settings.width};
-
+                PixelRegion region{
+                    .start_row = static_cast<uint32_t>(i * rows_per_task),
+                    .end_row = static_cast<uint32_t>((i == N - 1) ? settings.height : (i + 1) * rows_per_task),
+                    .start_col = 0,
+                    .end_col = settings.width};
+                
+                // ИСПРАВЛЕНИЕ: Возвращаемся к корректному паттерну для выполнения работы в пуле потоков.
+                // Сначала получаем "тикет" на выполнение в пуле (schedule),
+                // затем, уже находясь в потоке из пула, создаём и запускаем MandelbrotSender (let_value).
                 return stdexec::schedule(thread_pool_.get_scheduler()) |
                        stdexec::let_value([=]() { return MandelbrotSender{viewport, settings, region}; }) |
-                       stdexec::then([=](PixelMatrix pixel_matrix) {
+                       stdexec::then([=](PixelMatrix &&pixel_matrix) {
                            ColorMatrix color_matrix(region.end_row - region.start_row,
                                                     std::vector<mandelbrot::RgbColor>(settings.width));
 
@@ -45,20 +48,20 @@ public:
             return stdexec::when_all(create_strip_sender(Is)...);
         }(std::make_index_sequence<N>{});
 
-        return std::move(render_strips) | stdexec::then([=](auto... results) {
+        return std::move(render_strips) | stdexec::then([=](auto &&...results) {
                    auto start_time = std::chrono::steady_clock::now();
                    ColorMatrix final_image(settings.height, std::vector<mandelbrot::RgbColor>(settings.width));
 
-                   auto process_result = [&](const auto &result_pair) {
-                       const auto &[region, colors] = result_pair;
-                       for (uint32_t y = 0; y < colors.size(); ++y) {
-                           if (!colors.empty() && !colors[y].empty() && (region.start_row + y) < final_image.size()) {
-                                std::ranges::copy(colors[y], final_image[region.start_row + y].begin());
+                   (
+                       [&](const auto &result_pair) {
+                           const auto &[region, colors] = result_pair;
+                           for (uint32_t y = 0; y < colors.size(); ++y) {
+                               if ((region.start_row + y) < final_image.size()) {
+                                   std::ranges::copy(colors[y], final_image[region.start_row + y].begin());
+                               }
                            }
-                       }
-                   };
-
-                   (process_result(results), ...);
+                       }(results),
+                       ...);
 
                    auto end_time = std::chrono::steady_clock::now();
                    auto render_time = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
@@ -70,4 +73,3 @@ public:
                });
     }
 };
-
