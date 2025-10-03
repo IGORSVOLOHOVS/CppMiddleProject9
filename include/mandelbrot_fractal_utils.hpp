@@ -21,6 +21,8 @@ struct RgbColor {
     std::uint8_t r;
     std::uint8_t g;
     std::uint8_t b;
+
+    constexpr bool operator==(const RgbColor& other) const = default;
 };
 
 struct RgbColors {

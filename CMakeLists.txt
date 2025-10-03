@@ -1,7 +1,5 @@
-cmake_minimum_required(VERSION 3.30)
+cmake_minimum_required(VERSION 3.28)
 project(MandelbrotFractal  VERSION 1.0.0 LANGUAGES CXX)
-
-cmake_policy(SET CMP0169 OLD)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -34,21 +32,19 @@ CPMAddPackage(
         "STDEXEC_BUILD_TESTS OFF"
 )
 
-file(GLOB HEADER_FILES "${CMAKE_SOURCE_DIR}/include/*.hpp")
-file(GLOB SRC_FILES "${CMAKE_SOURCE_DIR}/src/*.cpp")
-list(REMOVE_ITEM SRC_FILES "${CMAKE_SOURCE_DIR}/src/main.cpp")
+# The core logic is header-only, so we create an INTERFACE library.
+# This allows other targets (like the executable and tests) to easily
+# inherit the include directories and link dependencies.
+add_library(${PROJECT_NAME}_imp INTERFACE)
 
-# Создаём статическую библиотеку
-add_library(${PROJECT_NAME}_imp STATIC "${CMAKE_SOURCE_DIR}/src/main.cpp" ${SRC_FILES} ${HEADER_FILES})
-
-# Добавляем в проект используемые сторонние PRIVATE
-target_include_directories(${PROJECT_NAME}_imp PUBLIC
+# Add include directories and link libraries to the interface target.
+target_include_directories(${PROJECT_NAME}_imp INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${stdexec_SOURCE_DIR}/include
     ${SFML_INCLUDE_DIR}
 )
 message(STATUS "matplotplusplus_SOURCE_DIR = ${matplotplusplus_SOURCE_DIR}")
-target_link_libraries(${PROJECT_NAME}_imp PUBLIC
+target_link_libraries(${PROJECT_NAME}_imp INTERFACE
     STDEXEC::stdexec
     sfml-graphics sfml-window sfml-system)
 
@@ -70,7 +66,7 @@ target_link_libraries(${PROJECT_NAME}_tests PRIVATE
     STDEXEC::stdexec
     sfml-graphics sfml-window sfml-system)
 
-target_include_directories(${PROJECT_NAME}_tests PUBLIC 
+target_include_directories(${PROJECT_NAME}_tests PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${stdexec_SOURCE_DIR}/include
     ${matplotplusplus_SOURCE_DIR}/source)
