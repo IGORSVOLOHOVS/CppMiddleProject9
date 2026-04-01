@@ -98,17 +98,16 @@ public:
     SfmlEventHandler(sf::RenderWindow &window, RenderSettings render_settings, AppState &state, sf::Clock &zoom_clock)
         : window_{window}, render_settings_{render_settings}, state_{state}, zoom_clock_{zoom_clock} {}
 
-    template <class Env>
-    auto get_completion_signatures(Env &&) const -> stdexec::completion_signatures<
+    friend auto tag_invoke(stdexec::get_completion_signatures_t, const SfmlEventHandler&, auto&&) -> stdexec::completion_signatures<
         stdexec::set_value_t(),
         stdexec::set_error_t(std::exception_ptr),
         stdexec::set_stopped_t()> {
         return {};
     }
 
-    template <stdexec::receiver Receiver>
-    auto connect(Receiver &&receiver) && -> OperationState<std::decay_t<Receiver>> {
-        return {std::forward<Receiver>(receiver), window_, render_settings_, state_, zoom_clock_};
+    friend auto tag_invoke(stdexec::connect_t, SfmlEventHandler&& self, stdexec::receiver auto&& receiver) 
+        -> OperationState<std::decay_t<decltype(receiver)>> {
+        return {std::forward<decltype(receiver)>(receiver), self.window_, self.render_settings_, self.state_, self.zoom_clock_};
     }
 private:
     sf::RenderWindow &window_;

@@ -18,16 +18,17 @@ public:
                 if (self.state_.need_rerender) {
                     self.state_.need_rerender = false;
 
-                    auto main_thread_scheduler = stdexec::get_scheduler(stdexec::get_env(self.receiver_));
-
                     auto render_sender = self.renderer_.template RenderAsync<THREAD_POOL_SIZE>(self.state_.viewport,
                                                                                                self.render_settings_);
                     
-                    auto transfer_back_sender =
-                        stdexec::continues_on(std::move(render_sender), main_thread_scheduler);
-
-                    auto op = stdexec::connect(std::move(transfer_back_sender), std::move(self.receiver_));
-                    stdexec::start(op);
+                    auto result = stdexec::sync_wait(std::move(render_sender));
+                    
+                    if (result) {
+                        auto [data] = std::move(*result);
+                        stdexec::set_value(std::move(self.receiver_), std::move(data));
+                    } else {
+                        stdexec::set_stopped(std::move(self.receiver_));
+                    }
                 } else {
                     stdexec::set_value(std::move(self.receiver_), RenderResult{});
                 }

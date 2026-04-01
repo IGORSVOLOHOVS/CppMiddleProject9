@@ -10,6 +10,7 @@ class GeometryAppConan(ConanFile):
     
     def requirements(self):
         self.requires("gtest/1.13.0")
+        self.requires("sfml/2.6.2")
         self.tool_requires("cmake/3.30.0")
     
     def layout(self):

@@ -1,5 +1,9 @@
 # cpp-middle-project-sprint-9 <!-- omit in toc -->
 
+## Description
+
+This project is a Mandelbrot fractal renderer that uses C++23 coroutines and executors to render the fractal in parallel. stdexec is used for parallel execution.
+
 - [Environment Variable Setup](#environment-variable-setup)
 - [Getting Started](#getting-started)
 - [Building the Project and Running Tests](#building-the-project-and-running-tests)
