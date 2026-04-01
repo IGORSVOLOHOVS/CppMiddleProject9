@@ -2,7 +2,11 @@
 
 ## Description
 
-This project is a Mandelbrot fractal renderer that uses C++23 coroutines and executors to render the fractal in parallel. stdexec is used for parallel execution.
+This project is a Mandelbrot fractal renderer that uses C++23 coroutines and executors to render the fractal in parallel. stdexec is used for parallel execution. Based on diffetent schedulers - CPU thread pool, GPU thread pool.
+
+![Mandelbrot Fractal](docs/image.png)
+
+![Mandelbrot Fractal](docs/image2.png)
 
 - [Environment Variable Setup](#environment-variable-setup)
 - [Getting Started](#getting-started)
