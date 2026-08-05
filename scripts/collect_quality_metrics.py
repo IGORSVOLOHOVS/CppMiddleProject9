@@ -48,7 +48,12 @@ SRC = ROOT / "src"
 
 def run(*cmd: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        cmd, cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace"
+        cmd,
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
 
 
@@ -115,7 +120,9 @@ def measure_maintainability() -> Metric:
     mi_scores = []
     if mi.returncode == 0 and mi.stdout.strip():
         mi_scores = [
-            v["mi"] for v in json.loads(mi.stdout).values() if isinstance(v, dict) and "mi" in v
+            v["mi"]
+            for v in json.loads(mi.stdout).values()
+            if isinstance(v, dict) and "mi" in v
         ]
 
     violations = 0
@@ -142,11 +149,15 @@ def measure_maintainability() -> Metric:
 def measure_portability() -> Metric:
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     requires = (
-        m.group(1) if (m := re.search(r'requires-python\s*=\s*"([^"]+)"', pyproject)) else "?"
+        m.group(1)
+        if (m := re.search(r'requires-python\s*=\s*"([^"]+)"', pyproject))
+        else "?"
     )
     ci = ROOT / ".github" / "workflows" / "ci.yml"
     ci_text = ci.read_text(encoding="utf-8") if ci.is_file() else ""
-    operating_systems = sorted(set(re.findall(r"(ubuntu|windows|macos)-latest", ci_text)))
+    operating_systems = sorted(
+        set(re.findall(r"(ubuntu|windows|macos)-latest", ci_text))
+    )
     versions = sorted(set(re.findall(r'"(3\.\d+)"', ci_text)))
     # Two OSes and two interpreter versions is the bar for "portable enough".
     score = min(100.0, 25.0 * len(operating_systems) + 25.0 * len(versions))
@@ -201,11 +212,16 @@ def main() -> int:
     print(f"\n  {'OVERALL (measured)':<24} {overall:>6.1f}")
 
     if args.output:
-        args.output.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+        args.output.write_text(
+            json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
         print(f"\nwrote {args.output}")
 
     if args.fail_under is not None and overall < args.fail_under:
-        print(f"\nFAIL: {overall} is below the required {args.fail_under}", file=sys.stderr)
+        print(
+            f"\nFAIL: {overall} is below the required {args.fail_under}",
+            file=sys.stderr,
+        )
         return 1
     return 0
 

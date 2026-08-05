@@ -40,7 +40,9 @@ def main() -> int:
     parser.add_argument("--paragraphs", type=int, default=500)
     parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--rows", type=int, default=15, help="how many lines to print")
-    parser.add_argument("--sort", default="cumtime", choices=["cumtime", "tottime", "ncalls"])
+    parser.add_argument(
+        "--sort", default="cumtime", choices=["cumtime", "tottime", "ncalls"]
+    )
     parser.add_argument("--save", type=Path, help="write raw pstats for snakeviz")
     args = parser.parse_args()
 
@@ -57,7 +59,9 @@ def main() -> int:
 
     if args.save:
         stats.dump_stats(str(args.save))
-        print(f"raw profile written to {args.save}\n  view it with:  snakeviz {args.save}")
+        print(
+            f"raw profile written to {args.save}\n  view it with:  snakeviz {args.save}"
+        )
     return 0
 
 

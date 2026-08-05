@@ -40,7 +40,9 @@ def regenerate_lock() -> None:
         subprocess.run([sys.executable, "-m", "venv", str(env_dir)], check=True)
 
         bin_dir = "Scripts" if sys.platform == "win32" else "bin"
-        env_python = env_dir / bin_dir / ("python.exe" if sys.platform == "win32" else "python")
+        env_python = (
+            env_dir / bin_dir / ("python.exe" if sys.platform == "win32" else "python")
+        )
 
         for args in (
             ["-m", "pip", "install", "--upgrade", "--quiet", "pip"],
@@ -76,7 +78,9 @@ def main() -> int:
         "--dev", action="store_true", help="also install test, lint and benchmark tools"
     )
     parser.add_argument(
-        "--lock", action="store_true", help="regenerate requirements-dev.lock from this environment"
+        "--lock",
+        action="store_true",
+        help="regenerate requirements-dev.lock from this environment",
     )
     parser.add_argument(
         "--from-lock",
@@ -91,7 +95,10 @@ def main() -> int:
 
     if args.from_lock:
         if not DEV_LOCK.is_file():
-            print(f"error: {DEV_LOCK.name} is missing; run with --lock first", file=sys.stderr)
+            print(
+                f"error: {DEV_LOCK.name} is missing; run with --lock first",
+                file=sys.stderr,
+            )
             return 1
         pip("install", "-r", str(DEV_LOCK))
         pip("install", "-e", ".", "--no-deps")

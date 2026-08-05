@@ -21,7 +21,11 @@ ALLOWED = ("release", "dev", "test")
 
 def git(*args: str) -> str:
     proc = subprocess.run(
-        ["git", *args], capture_output=True, text=True, encoding="utf-8", errors="replace"
+        ["git", *args],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     if proc.returncode != 0:
         raise SystemExit(f"git {' '.join(args)} failed: {proc.stderr.strip()[:200]}")
@@ -31,7 +35,9 @@ def git(*args: str) -> str:
 def local_branches() -> list[str]:
     return [
         b.strip()
-        for b in git("for-each-ref", "--format=%(refname:short)", "refs/heads").splitlines()
+        for b in git(
+            "for-each-ref", "--format=%(refname:short)", "refs/heads"
+        ).splitlines()
         if b.strip()
     ]
 
@@ -62,7 +68,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--remote", help="also check this remote, e.g. origin")
     parser.add_argument(
-        "--delete-extra", action="store_true", help="delete extra branches that are fully merged"
+        "--delete-extra",
+        action="store_true",
+        help="delete extra branches that are fully merged",
     )
     args = parser.parse_args()
 
