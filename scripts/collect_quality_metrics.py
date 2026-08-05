@@ -26,6 +26,22 @@ import subprocess
 import sys
 from pathlib import Path
 
+# One measured characteristic: a label, a score, and whatever evidence backs it.
+# The evidence differs per characteristic, so the values are deliberately loose -
+# named alias rather than a bare `dict`, which `mypy --strict` rejects.
+Metric = dict[str, object]
+
+
+def score_of(metric: Metric) -> float:
+    """The 0-100 score out of a metric, narrowed from the loose value type."""
+    value = metric.get("score", 0.0)
+    return float(value) if isinstance(value, (int, float)) else 0.0
+
+
+def label_of(metric: Metric) -> str:
+    return str(metric.get("characteristic", "?"))
+
+
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
 
@@ -36,7 +52,7 @@ def run(*cmd: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def measure_tests() -> dict:
+def measure_tests() -> Metric:
     # `-o addopts=` clears the -q already set in pyproject.toml. Without this the
     # two combine into -qq, which suppresses the "N passed" summary line that
     # this function parses, and every run silently reports zero tests.
@@ -54,7 +70,7 @@ def measure_tests() -> dict:
     }
 
 
-def measure_coverage() -> dict:
+def measure_coverage() -> Metric:
     proc = run(
         sys.executable,
         "-m",
@@ -81,7 +97,7 @@ def measure_coverage() -> dict:
     }
 
 
-def measure_maintainability() -> dict:
+def measure_maintainability() -> Metric:
     """Cyclomatic complexity and maintainability index, via radon."""
     cc = run(sys.executable, "-m", "radon", "cc", str(SRC), "-s", "-j")
     mi = run(sys.executable, "-m", "radon", "mi", str(SRC), "-j")
@@ -123,7 +139,7 @@ def measure_maintainability() -> dict:
     }
 
 
-def measure_portability() -> dict:
+def measure_portability() -> Metric:
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     requires = (
         m.group(1) if (m := re.search(r'requires-python\s*=\s*"([^"]+)"', pyproject)) else "?"
@@ -161,7 +177,7 @@ def main() -> int:
         measure_maintainability(),
         measure_portability(),
     ]
-    overall = round(sum(m["score"] for m in measured) / len(measured), 1)
+    overall = round(sum(score_of(m) for m in measured) / len(measured), 1)
 
     report = {
         "standard": "ISO/IEC 25010:2011 product quality model",
@@ -178,7 +194,7 @@ def main() -> int:
     }
 
     for m in measured:
-        print(f"  {m['characteristic']:<24} {m['score']:>6.1f}")
+        print(f"  {label_of(m):<24} {score_of(m):>6.1f}")
         for k, v in m.items():
             if k not in ("characteristic", "score"):
                 print(f"      {k}: {v}")
