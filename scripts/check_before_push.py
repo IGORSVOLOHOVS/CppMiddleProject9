@@ -117,7 +117,10 @@ def not_our_fault(output: str) -> str:
     not. Blocking a push on that is a false alarm, and a hook that cries wolf
     gets bypassed with --no-verify until it stops being read at all.
     """
-    if "ModuleNotFoundError" in output and "error during collection" in output:
+    # "1 error during collection" but "2 errors during collection" - matching
+    # the singular alone silently missed every repository with more than one
+    # failing test module, which is most of them.
+    if "ModuleNotFoundError" in output and "during collection" in output:
         return "the package is not installed here; CI installs it before testing"
     if "Required test coverage" in output and "Total coverage: 0.00%" in output:
         return "coverage measured nothing because the package is not installed here"
