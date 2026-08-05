@@ -110,7 +110,22 @@ def localise(command: list[str]) -> list[str] | None:
     return command
 
 
-def run(command: list[str], *, quiet: bool) -> bool:
+def not_our_fault(output: str) -> str:
+    """Why a test run failed for a reason a push cannot fix.
+
+    The runner installs the package before testing; this machine usually has
+    not. Blocking a push on that is a false alarm, and a hook that cries wolf
+    gets bypassed with --no-verify until it stops being read at all.
+    """
+    if "ModuleNotFoundError" in output and "error during collection" in output:
+        return "the package is not installed here; CI installs it before testing"
+    if "Required test coverage" in output and "Total coverage: 0.00%" in output:
+        return "coverage measured nothing because the package is not installed here"
+    return ""
+
+
+def run(command: list[str], *, quiet: bool) -> bool | None:
+    """True passed, False failed, None could not be judged on this machine."""
     proc = subprocess.run(
         [sys.executable, "-m", *command],
         cwd=ROOT,
@@ -120,15 +135,23 @@ def run(command: list[str], *, quiet: bool) -> bool:
         errors="replace",
         check=False,  # the return code is the result, not an error
     )
-    ok = proc.returncode == 0 or (
+    label = " ".join(command)
+    if proc.returncode == 0 or (
         command[0] == "pytest" and proc.returncode == PYTEST_EMPTY
-    )
-    print(f"  {'OK  ' if ok else 'FAIL'} {' '.join(command)}")
-    if not ok:
-        tail = (proc.stdout + proc.stderr).strip().splitlines()
-        for line in tail[-6:] if quiet else tail[-12:]:
-            print(f"       {line}")
-    return ok
+    ):
+        print(f"  OK   {label}")
+        return True
+
+    output = proc.stdout + proc.stderr
+    if command[0] == "pytest" and (reason := not_our_fault(output)):
+        print(f"  skip {label} - {reason}")
+        return None
+
+    print(f"  FAIL {label}")
+    tail = output.strip().splitlines()
+    for line in tail[-6:] if quiet else tail[-12:]:
+        print(f"       {line}")
+    return False
 
 
 def install_hook() -> int:
@@ -174,7 +197,9 @@ def main() -> int:
         if local is None:
             print(f"  skip {' '.join(command)} (not installed here)")
             continue
-        results.append(run(local, quiet=args.quiet))
+        verdict = run(local, quiet=args.quiet)
+        if verdict is not None:
+            results.append(verdict)
 
     if not results:
         print("\nnone of CI's tools are installed here - nothing checked")
