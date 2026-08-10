@@ -1,0 +1,131 @@
+# Configure, build and run the test suite the way the dev container does.
+#
+# The job ends in `ctest`. The escape-time computation and the row/column
+# partitioning of the render are exactly the kind of arithmetic that compiles
+# forever and quietly returns the wrong iteration count, so a build-only job
+# would report green while proving nothing.
+#
+# Two things about this project need arranging on a hosted runner:
+#
+#   * SFML and GTest come from conanfile.py, because the linux-default preset
+#     points CMAKE_TOOLCHAIN_FILE at build/generators/conan_toolchain.cmake and
+#     only `conan install` writes that file. Building SFML needs the X11, udev
+#     and OpenGL development packages, which Conan installs itself once the
+#     system package manager is enabled.
+#   * tests/mandelbrot_test.cpp constructs real sf::RenderWindow objects, so
+#     ctest needs a display and a GL implementation. Xvfb plus Mesa's software
+#     renderer provides both. This is not a way of skipping the display-bound
+#     tests - it is what lets them run at all.
+#
+# scripts/check_before_push.py runs exactly these steps locally.
+
+name: Build and test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-and-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: Linux / GCC 15 / Conan / Debug
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # GCC 15 is what .devcontainer/Dockerfile installs; noble has no g++-15
+      # in the archive, so the toolchain PPA supplies it. The apt attempt comes
+      # first so the PPA drops out once the runner image ships GCC 15.
+      - name: Install GCC 15
+        run: |
+          set -eux
+          sudo apt-get update
+          if ! sudo apt-get install -y --no-install-recommends g++-15 gcc-15; then
+            sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends g++-15 gcc-15
+          fi
+          sudo apt-get install -y --no-install-recommends ccache
+          g++-15 --version
+
+      - name: Install a display and a software OpenGL driver for the tests
+        run: |
+          set -eux
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libgl1-mesa-dri libglx-mesa0 libxrandr2 libxcursor1 libxi6
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Conan
+        run: pip install "conan>=2,<3"
+
+      - name: Restore the Conan cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2
+          key: conan-linux-gcc15-${{ hashFiles('conanfile.py') }}
+          restore-keys: |
+            conan-linux-gcc15-
+
+      - name: Restore the compiler cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-linux-gcc15-${{ github.sha }}
+          restore-keys: |
+            ccache-linux-gcc15-
+
+      # CMakeLists.txt fetches CPM and stdexec over the network on every
+      # configure; keeping build/_deps means a cold run downloads them once.
+      - name: Restore the fetched dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: deps-linux-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: |
+            deps-linux-
+
+      # Same compiler settings as the dev container. build_type is Debug
+      # because that is what the linux-default preset configures, and Conan has
+      # to generate the dependency files for the configuration CMake will ask
+      # for. The package_manager settings let Conan apt-install SFML's X11 and
+      # OpenGL build requirements instead of failing on them.
+      - name: Install the dependencies
+        env:
+          CC: gcc-15
+          CXX: g++-15
+        run: |
+          set -eux
+          conan profile detect --force
+          conan install . \
+            -s build_type=Debug \
+            -s compiler=gcc \
+            -s compiler.version=15 \
+            -s compiler.cppstd=gnu23 \
+            -s compiler.libcxx=libstdc++11 \
+            -c tools.system.package_manager:mode=install \
+            -c tools.system.package_manager:sudo=True \
+            --build=missing
+
+      - name: Configure
+        env:
+          CC: gcc-15
+          CXX: g++-15
+        run: cmake --preset linux-default -D CMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Build
+        run: cmake --build --preset linux-default
+
+      - name: Test
+        run: xvfb-run -a --server-args="-screen 0 1280x1024x24" ctest --preset linux-default
