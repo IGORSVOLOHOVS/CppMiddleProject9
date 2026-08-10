@@ -7,7 +7,22 @@ class GeometryAppConan(ConanFile):
     name = "sender_model_app"
     version = "0.0.1"
     settings = "os", "compiler", "build_type", "arch"
-    
+
+    default_options = {
+        # CMakeLists.txt asks for graphics, window and system - there is no
+        # sound and no networking anywhere in this project. Left at their
+        # defaults, those two SFML components drag in a whole audio stack
+        # (openal-soft, flac, ogg, vorbis) and an unused network module, all
+        # of which get built from source because no prebuilt binary matches
+        # this compiler.
+        #
+        # That is not merely slow. openal-soft 1.22.2 does not compile with
+        # GCC 15 at all, so a dependency the project never calls into was the
+        # only thing standing between this repository and a working build.
+        "sfml/*:audio": False,
+        "sfml/*:network": False,
+    }
+
     def requirements(self):
         self.requires("gtest/1.13.0")
         self.requires("sfml/2.6.2")
