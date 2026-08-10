@@ -203,6 +203,10 @@ def check_on_windows(commands: list[str]) -> int:
 
     print("\nRunning the native MSVC build instead. Same four stages - dependencies,")
     print("configure, build, ctest - through the windows-msvc-release preset.")
+    # The build writes straight to the console while this process' own output
+    # sits in a buffer, so without a flush the explanation of what is about to
+    # happen appears after the thing it explains.
+    sys.stdout.flush()
     proc = subprocess.run(
         [
             "powershell",

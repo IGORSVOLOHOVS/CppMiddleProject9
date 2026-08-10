@@ -7,11 +7,11 @@
 #
 # Two things about this project need arranging on a hosted runner:
 #
-#   * SFML and GTest come from conanfile.py, because the linux-default preset
-#     points CMAKE_TOOLCHAIN_FILE at build/generators/conan_toolchain.cmake and
-#     only `conan install` writes that file. Building SFML needs the X11, udev
-#     and OpenGL development packages, which Conan installs itself once the
-#     system package manager is enabled.
+#   * GTest comes from conanfile.py, because the linux-default preset points
+#     CMAKE_TOOLCHAIN_FILE at build/generators/conan_toolchain.cmake and only
+#     `conan install` writes that file. SFML comes from apt, which is where
+#     .devcontainer/Dockerfile gets it and which target names like
+#     sfml-graphics belong to.
 #   * tests/mandelbrot_test.cpp constructs real sf::RenderWindow objects, so
 #     ctest needs a display and a GL implementation. Xvfb plus Mesa's software
 #     renderer provides both. This is not a way of skipping the display-bound
@@ -57,11 +57,15 @@ jobs:
           sudo apt-get install -y --no-install-recommends ccache
           g++-15 --version
 
-      - name: Install a display and a software OpenGL driver for the tests
+      # libsfml-dev is what .devcontainer/Dockerfile installs. Xvfb and Mesa's
+      # software renderer are what let the display-bound tests run at all:
+      # tests/mandelbrot_test.cpp constructs real sf::RenderWindow objects.
+      - name: Install SFML, a display and a software OpenGL driver
         run: |
           set -eux
           sudo apt-get install -y --no-install-recommends \
-            xvfb libgl1-mesa-dri libglx-mesa0 libxrandr2 libxcursor1 libxi6
+            libsfml-dev xvfb libgl1-mesa-dri libglx-mesa0
+          dpkg-query -W libsfml-dev
 
       - uses: actions/setup-python@v5
         with:
@@ -99,8 +103,7 @@ jobs:
       # Same compiler settings as the dev container. build_type is Debug
       # because that is what the linux-default preset configures, and Conan has
       # to generate the dependency files for the configuration CMake will ask
-      # for. The package_manager settings let Conan apt-install SFML's X11 and
-      # OpenGL build requirements instead of failing on them.
+      # for.
       - name: Install the dependencies
         env:
           CC: gcc-15
@@ -114,8 +117,6 @@ jobs:
             -s compiler.version=15 \
             -s compiler.cppstd=gnu23 \
             -s compiler.libcxx=libstdc++11 \
-            -c tools.system.package_manager:mode=install \
-            -c tools.system.package_manager:sudo=True \
             --build=missing
 
       - name: Configure

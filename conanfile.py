@@ -25,7 +25,21 @@ class GeometryAppConan(ConanFile):
 
     def requirements(self):
         self.requires("gtest/1.13.0")
-        self.requires("sfml/2.6.2")
+        # On Linux SFML comes from apt: .devcontainer/Dockerfile installs
+        # libsfml-dev, and the CMakeLists asks for the sfml-graphics,
+        # sfml-window and sfml-system targets that its SFMLConfig.cmake
+        # exports, so the container build has never gone through Conan for it.
+        # Taking it from Conan here as well was not a second opinion, it was a
+        # second, worse source: the recipe builds SFML from a tarball on
+        # www.sfml-dev.org, which is a single origin that a hosted runner
+        # cannot always reach - and when it cannot, a project that has all its
+        # dependencies installed fails to build for a reason that has nothing
+        # to do with the project.
+        #
+        # Windows has no apt, so the requirement stays there. That is the same
+        # split CppMiddleProject7 makes for Boost and GTest.
+        if self.settings.os != "Linux":
+            self.requires("sfml/2.6.2")
         self.tool_requires("cmake/3.30.0")
     
     def layout(self):
