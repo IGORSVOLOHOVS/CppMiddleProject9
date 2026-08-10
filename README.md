@@ -16,6 +16,10 @@ This project is a Mandelbrot fractal renderer that uses C++23 coroutines and exe
   - [Test Running Command](#test-running-command)
   - [Command to run clang-format — mandatory requirement before code review](#command-to-run-clang-format--mandatory-requirement-before-code-review)
   - [Debugger Launch Commands](#debugger-launch-commands)
+- [Сборка под Windows](#сборка-под-windows)
+  - [Что нужно установить](#что-нужно-установить)
+  - [Как собрать](#как-собрать)
+  - [Пресеты CMake](#пресеты-cmake)
 - [Additionally](#additionally)
 
 
@@ -96,6 +100,70 @@ Ensure this functionality is working:
 ### Debugger Launch Commands
 
 In Visual Studio Code, debugger launch parameters are located in the .vscode/launch.json file. Since this file already contains a Launch GeometryApp configuration to run an application that calculates file checksums, to start the debugger, just press F5 or open the Run and Debug window using `Ctrl+Shift+D`.
+
+## Сборка под Windows
+
+Dev-контейнер остаётся основным способом сборки, но проект собирается и нативно —
+компилятором MSVC, без Docker и без WSL. Точка входа одна: `scripts\build_windows.ps1`.
+
+### Что нужно установить
+
+- **Visual Studio 2022** (Community достаточно) с рабочей нагрузкой
+  «Разработка классических приложений на C++». Нужен компилятор MSVC v143;
+  проверялось на `cl.exe` 19.44 из набора 14.44.35207. Стандарт остаётся тем же,
+  что и на Linux, — C++23; на компиляторе постарше не найдётся ни `std::println`,
+  ни `std::views::cartesian_product`.
+- **CMake ≥ 3.30** и **Ninja** на `PATH`. Оба приезжают вместе с компонентом
+  Visual Studio «C++ CMake tools for Windows», если ставить их отдельно не хочется.
+- **Conan 2** (`pip install conan`) — из него берутся gtest и sfml вместе со всей
+  их обвязкой (freetype, openal-soft, flac, vorbis, libpng).
+- **git** на `PATH` — CPM.cmake и stdexec выкачиваются не Conan-ом, а самим CMake
+  на этапе конфигурации, поэтому первая конфигурация требует сети.
+
+Отдельно запускать «Developer Command Prompt» не требуется — скрипт сам находит
+`vcvars64.bat` (через `vswhere`, с запасными путями) и вносит окружение MSVC в
+свой процесс.
+
+### Как собрать
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build_windows.ps1
+```
+
+Скрипт ставит зависимости через Conan, конфигурирует CMake, собирает всё,
+прогоняет `ctest` и в конце печатает пути к получившимся `.exe`. Результат лежит
+в `build\windows`, основной исполняемый файл — `build\windows\MandelbrotFractal.exe`:
+
+```powershell
+build\windows\MandelbrotFractal.exe
+```
+
+Полезные ключи:
+
+| Ключ | Зачем |
+| --- | --- |
+| `-BuildType Debug` | сборка с отладочной информацией в `build\windows-debug` |
+| `-Clean` | удалить каталог сборки и собрать с нуля |
+| `-SkipTests` | не запускать `ctest` |
+
+Тесты не headless: почти каждый из них открывает настоящее окно SFML, поэтому
+гонять их надо в живой сессии рабочего стола, а не по ssh и не из-под службы.
+
+### Пресеты CMake
+
+`CMakePresets.json` описывает обе платформы, поэтому IDE (Visual Studio, VS Code,
+CLion) подхватывает конфигурацию сама:
+
+| Пресет | Платформа | Генератор | Каталог сборки |
+| --- | --- | --- | --- |
+| `linux-default` | Linux / dev-контейнер | Unix Makefiles | `build/` |
+| `windows-msvc-release` | Windows, MSVC x64 | Ninja | `build/windows/` |
+| `windows-msvc-debug` | Windows, MSVC x64 | Ninja | `build/windows-debug/` |
+
+Каждый пресет предполагает, что `conan install` уже отработал: путь к
+`conan_toolchain.cmake` прописан прямо в пресете. Windows-пресеты рассчитаны на
+уже внесённое окружение MSVC — вручную их запускают из developer-командной
+строки, а `scripts\build_windows.ps1` делает это за вас.
 
 ## Additionally
 

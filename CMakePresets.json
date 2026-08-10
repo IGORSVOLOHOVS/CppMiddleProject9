@@ -1,0 +1,99 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "linux-default",
+      "displayName": "Linux (GCC 15, Unix Makefiles, Debug)",
+      "description": "Повторяет то, что делает dev-контейнер: g++-15, Debug, каталог build/. Ninja в образ не ставится, поэтому генератор — Unix Makefiles. Перед первым запуском нужен `conan install . --build=missing --settings=build_type=Debug` из корня репозитория: layout() из conanfile.py кладёт conan_toolchain.cmake ровно по указанному ниже пути.",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/generators/conan_toolchain.cmake"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "windows-msvc-release",
+      "displayName": "Windows (MSVC x64, Ninja, Release)",
+      "description": "Собирается через scripts\\build_windows.ps1: cl.exe берётся из окружения vcvars64, поэтому запускать этот пресет вручную надо из developer-командной строки. Стандарт остаётся 23 — тот же, что и на Linux, отдельного режима C++26 у MSVC всё равно нет. Путь к conan_toolchain.cmake — результат `conan install --output-folder build/windows`, где layout() добавляет свои build/generators; скрипт всё равно передаёт найденный путь через -D, так что он главнее.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/windows",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "cl",
+        "CMAKE_CXX_COMPILER": "cl",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_POLICY_DEFAULT_CMP0091": "NEW",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/windows/build/generators/conan_toolchain.cmake"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "windows-msvc-debug",
+      "inherits": "windows-msvc-release",
+      "displayName": "Windows (MSVC x64, Ninja, Debug)",
+      "description": "То же самое, но с отладочной информацией и в отдельном каталоге, чтобы не перетирать Release. Отдельный каталог нужен и Conan-у: рантайм-библиотека MSVC у Debug и Release разная, одним набором зависимостей обойтись нельзя.",
+      "binaryDir": "${sourceDir}/build/windows-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/windows-debug/build/generators/conan_toolchain.cmake"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "linux-default",
+      "configurePreset": "linux-default"
+    },
+    {
+      "name": "windows-msvc-release",
+      "configurePreset": "windows-msvc-release"
+    },
+    {
+      "name": "windows-msvc-debug",
+      "configurePreset": "windows-msvc-debug"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "linux-default",
+      "configurePreset": "linux-default",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "windows-msvc-release",
+      "configurePreset": "windows-msvc-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "windows-msvc-debug",
+      "configurePreset": "windows-msvc-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

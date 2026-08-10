@@ -13,6 +13,18 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(-fmax-errors=1)
 endif()
 
+if(MSVC)
+    # /utf-8 — исходники лежат в UTF-8 без BOM и содержат русские комментарии.
+    # Без этого ключа cl.exe читает их в ANSI-кодировке машины: на русской
+    # локали это тихо проходит, на любой другой даёт C4819 на каждом файле.
+    #
+    # /bigobj — страховка: stdexec разворачивает пайплайн в огромные шаблонные
+    # инстанцирования, и объектный файл, распухший от отладочной информации,
+    # упирается в лимит в 65536 секций (C1128). Ключ не стоит ничего и снимает
+    # вопрос заранее.
+    add_compile_options(/utf-8 /bigobj)
+endif()
+
 # Ищем необходимые библиотеки
 find_package(GTest REQUIRED)
 find_package(SFML COMPONENTS graphics window system REQUIRED)

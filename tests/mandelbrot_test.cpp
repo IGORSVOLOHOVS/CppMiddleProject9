@@ -113,6 +113,10 @@ TEST(SFMLRenderTest, RendersDataWhenProvided) {
     sf::Image image;
     image.create(2, 1, sf::Color::Black);
     sf::Texture texture;
+    // Текстуре нужен размер: SFMLRender безусловно зовёт texture.update(image),
+    // а update у пустой текстуры пишет за её границы. В Release это молчаливый
+    // выход за пределы, в Debug — assert(x + width <= m_size.x) и abort.
+    texture.create(2, 1);
     sf::Sprite sprite;
     sf::RenderWindow window{sf::VideoMode({2, 1}), "Test"};
 
@@ -131,6 +135,9 @@ TEST(SFMLRenderTest, SkipsUpdateForEmptyData) {
     sf::Image image;
     image.create(2, 1, sf::Color::Blue);
     sf::Texture texture;
+    // Пустых данных на входе SFMLRender не касается, но texture.update(image)
+    // зовёт всё равно — размер нужен и здесь.
+    texture.create(2, 1);
     sf::Sprite sprite;
     sf::RenderWindow window{sf::VideoMode({2, 1}), "Test"};
 
